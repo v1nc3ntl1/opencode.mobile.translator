@@ -32,10 +32,10 @@ flutter test
 flutter analyze
 
 # Format check
-dart format --check .
+dart format --set-exit-if-changed .
 
 # Combined pre-commit
-flutter analyze && dart format --check . && flutter test
+flutter analyze && dart format --set-exit-if-changed . && flutter test
 ```
 
 ## Important Folders
@@ -112,11 +112,11 @@ const apiKey = String.fromEnvironment('GOOGLE_TRANSLATE_API_KEY');
 Before every commit, run:
 
 ```bash
-flutter analyze && dart format --check . && flutter test
+flutter analyze && dart format --set-exit-if-changed . && flutter test
 ```
 
 | Check | Must Pass |
 |---|---|
 | `flutter analyze` | Zero errors, zero warnings |
-| `dart format --check .` | All files formatted |
+| `dart format --set-exit-if-changed .` | All files formatted |
 | `flutter test` | All tests green |

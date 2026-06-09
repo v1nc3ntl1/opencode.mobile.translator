@@ -391,8 +391,93 @@ graph LR
 ## 6. Scope Notes
 
 | Feature | Languages | Offline | Excluded (v1) |
-|---|---|---|---|
+|---|---|---|---|---|
 | Text Translation | 10+ | Top 10 pairs | Emoji, mixed-language, special chars, URLs |
 | OCR + Translation | 10+ (OCR) | — | Blurry, skewed, handwritten, low light, multi-language images |
 | Foreign Text -> English Audio | TTS: English only | — | Long text chunking, abbreviations/numerals |
 | Speech -> English Audio | ASR: 10+ source | — | Background noise, multiple speakers, overlapping, strong accents, code-switching |
+
+---
+
+## 7. Vertical Slices
+
+Each slice is independently shippable — spanning UI -> ViewModel -> Orchestrator -> Service -> Data/API.
+
+### Slice 1: Text Translation (Core)
+
+| Layer | Deliverables |
+|---|---|
+| **Project** | Flutter scaffold, dependencies, folder structure, all entities/models (`Language`, `TranslationRecord`, `AudioCache`, `UserPreferences`, `OfflineModel`, `OcrSession`) |
+| **Service** | `TextTranslationService` (Google Cloud API + ML Kit offline fallback) |
+| **Orchestrator** | `TranslateOrchestrator` (cache lookup -> offline -> cloud) |
+| **ViewModel** | `TranslationViewModel` |
+| **UI** | `TextTranslationScreen` (text input, language pickers, translated output) |
+| **Core** | `LanguageManager`, `CacheManager`, history save to SQLite |
+| **Tests** | Unit tests for service + orchestrator, widget test for screen |
+
+**Why first**: Foundation for all other features. Every subsequent slice reuses `TextTranslationService`.
+
+---
+
+### Slice 2: OCR Translation
+
+| Layer | Deliverables |
+|---|---|
+| **Service** | `OcrService` (Google ML Kit Text Recognition, on-device) |
+| **Orchestrator** | `OcrTranslateOrchestrator` (image -> OCR -> translate) |
+| **ViewModel** | `OcrViewModel` |
+| **UI** | `OcrScreen` (camera preview, gallery import, translation overlay, low-confidence retake prompt) |
+| **Data** | `OcrSession` persistence |
+| **Tests** | Unit tests for OCR service + orchestrator, widget test for screen |
+
+**Reuses**: `TextTranslationService`, `LanguageManager`, history, cache from Slice 1.
+
+---
+
+### Slice 3: Speech -> English Audio
+
+| Layer | Deliverables |
+|---|---|
+| **Service** | `AsrService` (Google STT cloud + ML Kit offline), `TtsService` (Azure TTS cloud + OS fallback) |
+| **Orchestrator** | `SpeechTranslateOrchestrator` (speech -> ASR -> translate -> TTS) |
+| **ViewModel** | `SpeechViewModel`, `AudioViewModel` |
+| **UI** | `SpeechScreen` (mic button, live captions, English text output), `AudioPlaybackScreen` (play/pause, speed 0.5x-2x, download) |
+| **Data** | `AudioCache` persistence |
+| **Tests** | Unit tests for ASR + TTS services + orchestrator, widget tests for both screens |
+
+**Reuses**: `TextTranslationService`, `LanguageManager`, history, cache from Slice 1.
+
+---
+
+### Slice 4: Settings, Offline Models & History
+
+| Layer | Deliverables |
+|---|---|
+| **Core** | `OfflineManager` (model download/delete/status), `ConnectivityMonitor`, `OfflineSyncManager` |
+| **UI** | `SettingsScreen` (default languages, voice prefs, offline model management), `HistoryScreen` (list all `TranslationRecord`s, filter by source type, favorites toggle) |
+| **Data** | `UserPreferences` persistence, offline model lifecycle, history queries |
+| **Tests** | Unit tests for offline logic, widget tests for both screens |
+
+**Reuses**: All services and orchestrators from Slices 1-3.
+
+---
+
+### Slice 5: Conversation Mode & Polish
+
+| Layer | Deliverables |
+|---|---|
+| **UI** | Conversation mode (two-way alternating speech, split-screen) |
+| **Everything** | Error states, loading states, empty states, accessibility (screen reader labels, contrast), performance optimization (lazy loading, image compression) |
+| **Tests** | Full integration tests for all flows, manual QA checklist from SPEC.md |
+
+---
+
+### Dependency Graph
+
+```
+Slice 1 (Text Translation)
+  +-- Slice 2 (OCR) -- reuses TextTranslationService
+  +-- Slice 3 (Speech/Audio) -- reuses TextTranslationService
+  +-- Slice 4 (Settings/History) -- requires 1, 2, 3 to be complete
+       +-- Slice 5 (Conversation + Polish) -- requires all above
+```

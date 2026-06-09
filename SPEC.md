@@ -83,5 +83,5 @@ common language pairs.
 ### Pre-Commit Gate
 
 ```bash
-flutter analyze && dart format --check . && flutter test
+flutter analyze && dart format --set-exit-if-changed . && flutter test
 ```
